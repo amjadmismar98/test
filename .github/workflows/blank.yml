@@ -16,18 +16,19 @@ on:
 
 jobs:
   test-and-copy:
-    runs-on: [${{ github.event.inputs.environment}}]
+    # runs-on: [${{ github.event.inputs.environment}}]
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v2
+      - run: echo " deploy on ${{ github.event.inputs.environment}} "
+      # - name: Checkout code
+      #   uses: actions/checkout@v2
       
       # - name: Run script
       #   run: |
       #     # Replace the command with your script execution command
       #     ./your-test-script.sh
 
-      - name: Copy Docker Compose file
-        run: |
-          # Replace 'docker-compose.yml' with your file name and destination path
-          cp docker-compose.yml ~/
+      # - name: Copy Docker Compose file
+      #   run: |
+      #     # Replace 'docker-compose.yml' with your file name and destination path
+      #     cp docker-compose.yml ~/
