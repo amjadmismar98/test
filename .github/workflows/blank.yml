@@ -13,11 +13,11 @@ on:
             - infrastructure
             - internal
             - test
-
+             
 jobs:
   test-and-copy:
-    runs-on: ${github.event.inputs.environment}
-
+    runs-on: [test]
+    if: ${{ github.event.inputs.environment == 'test' }}
     steps:
       - run: echo " deploy on ${{ github.event.inputs.environment}} "
       # - name: Checkout code
