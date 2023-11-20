@@ -1,0 +1,156 @@
+version: '3.8'
+services:
+  redis:
+    image: redis:latest
+    restart: always
+    ports:
+      - "6379:6379"
+
+    networks:
+      - infrastructure
+    volumes:
+      - ./data:/root/redis
+      - ./redis.conf:/usr/local/etc/redis/redis.conf
+    environment:
+      - REDIS_PASSWORD=automotion123
+      - REDIS_PORT=6379
+      - REDIS_DATABASES=16
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    restart: always
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - ./zookeeper/zk-data:/var/lib/zookeeper/data
+      - ./zookeeper/zk-txn-logs:/var/lib/zookeeper/log
+    networks:
+      - infrastructure
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    restart: always
+    depends_on:
+      - zookeeper
+    ports:
+      - 9092:9092
+      - 29092:29092
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://10.100.1.50:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+    volumes:
+      - ./kafka-data:/var/lib/kafka/data
+    networks:
+      - infrastructure
+
+  typesense:
+    image: typesense/typesense:0.25.1
+    restart: on-failure
+    ports:
+      - "8108:8108"
+    networks:
+      - infrastructure
+    volumes:
+      - ./typesense-data:/data
+    command: '--data-dir /data --api-key=xyz --enable-cors'
+  admin_dashboard:
+    container_name: admin_dashboard
+    image: ghcr.io/lewynation/typesense-admin-dashboard:latest
+    restart: always
+    ports:
+      - 8109:8109
+
+  mongo:
+    image: mongo:latest
+    # environment:
+    #   MONGO_INITDB_ROOT_USERNAME: root
+    #   MONGO_INITDB_ROOT_PASSWORD: automotion123
+    # security:
+    #   keyFile: /data/replica.key
+    # replication:
+    #  replSetName: "rs0"
+    command:  --replSet rs0 --bind_ip_all
+    ports:
+      - "27017:27017"
+    networks:
+      - infrastructure
+    volumes:
+      - ./mongo-data:/data/db
+     # - ./keyfile:/data/replica.key
+
+
+ # airflow:
+  #  image: apache/airflow:latest
+   # ports:
+    #  - "8080:8080"
+    #environment:
+     # - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////root/airflow/airflow.db
+   # volumes:
+    #  - ./airflow-data:/root/airflow
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui
+    ports:
+      - "8081:8080"
+    networks:
+      - infrastructure
+    environment:
+      - DYNAMIC_CONFIG_ENABLED=true
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=10.100.1.50:29092
+
+  fusionauth:
+    image: fusionauth/fusionauth-app
+    ports:
+      - "9011:9011"
+    networks:
+      - infrastructure
+
+    environment:
+      - DATABASE_URL=jdbc:postgresql://postgres:5432/mydatabase
+      - DATABASE_ROOT_USER=root
+      - DATABASE_ROOT_PASSWORD=automotion@123
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: root
+      POSTGRES_PASSWORD: automotion@123
+    ports:
+      - "5432:5432"
+    networks:
+      - infrastructure
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+
+  etcd:
+    image: 'bitnami/etcd:latest'
+    environment:
+      - ALLOW_NONE_AUTHENTICATION=yes
+      - ETCD_ADVERTISE_CLIENT_URLS=http://10.100.1.50:2379
+    ports:
+      - 2379:2379
+      - 2380:2380
+    networks:
+      - infrastructure
+
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    ports:
+      - 9000:9000
+    volumes:
+        - ./portainer-data:/data
+        - /var/run/docker.sock:/var/run/docker.sock
+    restart: unless-stopped
+    networks:
+      - infrastructure
+networks:
+   infrastructure:
+    external: true
