@@ -12,11 +12,11 @@ on:
          options:
             - infrastructure
             - internal
-            - dmz
+            - test
 
 jobs:
   test-and-copy:
-    runs-on: $github.event.inputs.environment
+    runs-on: ${github.event.inputs.environment}
 
     steps:
       - run: echo " deploy on ${{ github.event.inputs.environment}} "
