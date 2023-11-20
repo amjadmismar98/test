@@ -3,11 +3,11 @@ name: Test and Copy Docker Compose
 on:
   push:
     branches:
-      - main  # Replace 'main' with your branch name if necessary
+      - main  
 
 jobs:
   test-and-copy:
-    runs-on: test  # Replace 'test' with your runner label
+    runs-on: [self-hosted]
 
     steps:
       - name: Checkout code
