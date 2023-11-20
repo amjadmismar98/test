@@ -5,15 +5,18 @@ on:
     # branches:
     #   - main  
   workflow_dispatch:  # Manual trigger
-    # inputs:
-    #   confirm:
-    #     description: 'Confirm the change'
-    #     required: true
-    #     default: 'yes'
+     inputs:
+       environment:
+         description: 'where to deploy'
+         type: choice
+         options:
+            - infrastructure
+            - internal
+            - dmz
 
 jobs:
   test-and-copy:
-    runs-on: [self-hosted]
+    runs-on: [${{ github.event.inputs.environment}}]
 
     steps:
       - name: Checkout code
