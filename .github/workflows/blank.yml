@@ -16,7 +16,7 @@ on:
 
 jobs:
   test-and-copy:
-    # runs-on: [${{ github.event.inputs.environment}}]
+    runs-on: ubuntu-latest
 
     steps:
       - run: echo " deploy on ${{ github.event.inputs.environment}} "
