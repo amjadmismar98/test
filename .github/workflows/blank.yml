@@ -21,4 +21,4 @@ jobs:
       - name: Copy Docker Compose file
         run: |
           # Replace 'docker-compose.yml' with your file name and destination path
-          cp docker-compose.yml ~/home/info/
+          cp docker-compose.yml ~/
