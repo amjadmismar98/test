@@ -16,7 +16,7 @@ on:
              
 jobs:
   test-and-copy:
-    runs-on: [test]
+    runs-on: [self-hosted]
     if: ${{ github.event.inputs.environment == 'test' }}
     steps:
       - run: echo " deploy on ${{ github.event.inputs.environment}} "
