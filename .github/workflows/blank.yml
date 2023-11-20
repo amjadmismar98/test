@@ -4,6 +4,12 @@ on:
   push:
     branches:
       - main  
+  workflow_dispatch:  # Manual trigger
+    inputs:
+      confirm:
+        description: 'Confirm the change'
+        required: true
+        default: 'yes'
 
 jobs:
   test-and-copy:
