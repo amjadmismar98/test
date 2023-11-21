@@ -1,0 +1,202 @@
+version: '3.8'
+
+x-common-env: &env
+  NODE_ENV: ${NODE_ENV}
+  NODE_OPTIONS: --enable-source-maps
+  KAFKA_BROKERS: ${KAFKA_BROKERS}
+  REDIS_URL: ${REDIS_URL}
+  REDIS_SENTINEL_NODES: ${REDIS_SENTINEL_NODES}
+  REDIS_SENTINEL_GROUP_NAME: ${REDIS_SENTINEL_GROUP_NAME}
+  REDIS_SENTINEL_GROUP_PASSWORD: ${REDIS_SENTINEL_GROUP_PASSWORD}
+  FUSION_AUTH_BASE_URL: ${FUSION_AUTH_BASE_URL}
+  FUSION_AUTH_APPLICATION_ID: ${FUSION_AUTH_APPLICATION_ID}
+  FUSION_AUTH_API_KEY: ${FUSION_AUTH_API_KEY}
+  FUSION_AUTH_TENANT_ID: ${FUSION_AUTH_TENANT_ID}
+  SENTRY_DSN: ${SENTRY_DSN}
+  TYPESENSE_HOST: ${TYPESENSE_HOST}
+  TYPESENSE_PORT: ${TYPESENSE_PORT}
+  TYPESENSE_APIKEY: ${TYPESENSE_APIKEY}
+  TYPESENSE_TABLE_NAME: ${TYPESENSE_TABLE_NAME}
+services:
+  tfm-main-service:
+    image: connectedmotiondocker/tfm-main-service:${TFM_MAIN_SERVICE_TAG}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+         parallelism: 1
+         failure_action: rollback
+    ports:
+      - 4000:4000
+    environment:
+      <<: *env
+      PORT: 4000
+      DATABASE_URL: ${BASE_DATABASE_URL}/fleet?maxPoolSize=3&appName=tfm-main-service&authSource=admin&directConnection=true
+      KAFKA_CLIENT_ID: tfm-main-service
+      REPORTING_HOST: reporting
+      REPORTING_PORT: 3005
+    restart: on-failure
+
+  reporting:
+    container_name: reporting
+    image: connectedmotiondocker/reporting:0.0.2-main.9
+    restart: on-failure
+    ports:
+      - 3005:3005
+    environment:
+      <<: *env
+      DATABASE_URL: ${BASE_DATABASE_URL}/fleet?maxPoolSize=3&appName=tfm-main-service&authSource=admin&directConnection=true
+      HOST: 0.0.0.0
+      PORT: 3005
+  trip-consumer:
+    image: connectedmotiondocker/trip-consumer:${TRIP_CONSUMER_TAG}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+         parallelism: 1
+         failure_action: rollback
+    restart: on-failure
+    environment:
+      <<: *env
+      DATABASE_URL: ${BASE_DATABASE_URL}/fleet?maxPoolSize=3&appName=trip-consumer&authSource=admin&directConnection=true
+      KAFKA_CLIENT_ID: trip-consumer
+  csv-consumer:
+    image: connectedmotiondocker/csv-consumer:${CSV_CONSUMER_TAG}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+         parallelism: 1
+         failure_action: rollback
+    restart: on-failure
+    environment:
+      <<: *env
+      DATABASE_URL: ${BASE_DATABASE_URL}/fleet?maxPoolSize=3&appName=csv-consumer&authSource=admin&directConnection=true
+      KAFKA_CLIENT_ID: csv-consumer
+      ACCESS_KEY_ID: ${ACCESS_KEY_ID}
+      SECRET_ACCESS_KEY: ${SECRET_ACCESS_KEY}
+      REGION: ${REGION}
+      BUCKET_NAME: ${BUCKET_NAME}
+  sync-mongo-typesense:
+    image: connectedmotiondocker/sync-mongo-typesense:${SYNC_MONGO_TYPESENSE_TAG}
+    deploy:
+      mode: replicated
+      replicas: 1
+      update_config:
+         parallelism: 1
+         failure_action: rollback
+    restart: on-failure
+    environment:
+      <<: *env
+      DATABASE_URL: ${BASE_DATABASE_URL}/fleet?maxPoolSize=3&appName=sync-mongo-typesense&authSource=admin&directConnection=true
+      KAFKA_CLIENT_ID: sync-mongo-typesense
+  
+  raw-data-handler:
+   # depends_on:
+   #   - kafka
+    image: connectedmotiondocker/raw-data-handler:${RAW_DATA_HANDLER_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - TRIGGER_TOPIC_NAME=${TRIGGER_TOPIC_NAME_RAW_DATA_HANDLER}
+      - PUBLISH_TOPIC_NAME=${PUBLISH_TOPIC_NAME_RAW_DATA_HANDLER}
+      - CONSUMER_GROUP_NAME=${CONSUMER_GROUP_NAME_RAW_DATA_HANDLER}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    deploy:
+      replicas: 1
+    #networks:
+     # - fleet-global-network
+      #- web
+
+  process-controller:
+   # depends_on:
+    #  - kafka
+    image: connectedmotiondocker/process-controller:${PROCESS_CONTROLLER_TAG}
+#    secrets:
+ #     - mysecret
+    environment:
+      - SLOT={{.Task.Slot}}
+      - TRIGGER_TOPIC_NAME=${TRIGGER_TOPIC_NAME_PROCESS_CONTROLLER}
+      - PUBLISH_TRANSLATED_TOPIC_NAME=${PUBLISH_TRANSLATED_TOPIC_NAME_PROCESS_CONTROLLER}
+      - PUBLISH_DEVICE_UPDATED_TOPIC_NAME=${PUBLISH_DEVICE_UPDATED_TOPIC_NAME_PROCESS_CONTROLLER}
+      - PUBLISH_TRIP_CHANGES_TOPIC_NAME=${PUBLISH_TRIP_CHANGES_TOPIC_NAME_PROCESS_CONTROLLER}
+      - PUBLISH_ALARMS_TOPIC=${PUBLISH_ALARMS_TOPIC_PROCESS_CONTROLLER}
+      - CONSUMER_GROUP_NAME=${CONSUMER_GROUP_NAME_PROCESS_CONTROLLER}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - ADMIN_HOST=${ADMIN_HOST}
+      - ADMIN_PORT=${ADMIN_PORT}
+      - GEOFENCE_API=${GEOFENCE_API} 
+    deploy:
+      replicas: 2
+        
+   # networks:
+    #  - fleet-global-network
+     # - web
+
+  realtime-logic-engine:
+    depends_on:
+      - process-controller
+     # - admin-system
+    image: connectedmotiondocker/logic-engine:${LOGIC_ENGINE_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - TRIGGER_TOPIC_NAME=${TRIGGER_TOPIC_NAME_REALTIME_LOGIC_ENGINE}
+      - PUBLISH_TOPIC_NAME=${PUBLISH_TOPIC_NAME_REALTIME_LOGIC_ENGINE}
+      - CONSUMER_GROUP_NAME=${CONSUMER_GROUP_NAME_REALTIME_LOGIC_ENGINE}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - ADMIN_HOST=${ADMIN_HOST}
+      - ADMIN_PORT=${ADMIN_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - SERVICE_TYPE = realtime-logic-engine
+    deploy:
+      replicas: 2
+      restart_policy:
+        condition: any
+        delay: 15s
+
+    # networks:
+    #  - fleet-global-network
+    #   - web
+  delayed-logic-engine:
+    depends_on:
+      - process-controller
+#      - admin-system
+    image: connectedmotiondocker/delayed-logic-engine:${DELAYED_LOGIC_ENGINE_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - TRIGGER_TOPIC_NAME=${TRIGGER_TOPIC_NAME_DELAYED_LOGIC_ENGINE}
+      - PUBLISH_TOPIC_NAME=${PUBLISH_TOPIC_NAME_DELAYED_LOGIC_ENGINE}
+      - CONSUMER_GROUP_NAME=${CONSUMER_GROUP_NAME_DELAYED_LOGIC_ENGINE}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - ADMIN_HOST=${ADMIN_HOST}
+      - ADMIN_PORT=${ADMIN_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    deploy:
+     replicas: 1
+    # networks:
+    #  - fleet-global-network
+    #   - web
+
+
+#networks:
+  #web:
+   # driver: overlay
+  #fleet-global-network:
+    #driver: overlay
+#secrets:
+#  mysecret:
+#    external: true
