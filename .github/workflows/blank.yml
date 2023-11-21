@@ -49,4 +49,4 @@ jobs:
       - run: echo "Deploying on dmz runner"
       - name: Copy Docker Compose file
         run: |          
-          cp docker-compose.dmz.yml ~/apps  && mv -f  docker-compose.dmz.yml docker-compose.yml
+          cp docker-compose.dmz.yml ~/apps  | mv -f  docker-compose.dmz.yml docker-compose.yml
