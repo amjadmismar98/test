@@ -1,0 +1,152 @@
+version: '3.8'
+
+services:
+  admin:
+    image: connectedmotiondocker/admin:${ADMIN_TAG}
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    ports:
+      - 8080:8080
+  tfm-app:
+    image: connectedmotiondocker/tfm-app:${TFM_APP_TAG}
+    restart: always
+    deploy:
+      mode: replicated
+      replicas: 1
+    ports:
+      - 3000:3000
+    networks:
+       - fleet-global-network
+
+  apisix:
+    image: apache/apisix:${APISIX_IMAGE_TAG:-3.6.0-debian}
+    #image: connectedmotiondocker/apisix:3.6.0-debian-staging
+    deploy:
+      mode: replicated
+      replicas: 1
+    restart: always
+    volumes:
+      - ./apisix/apisix-config.yml:/usr/local/apisix/conf/config.yaml:ro
+    ports:
+      - "9180:9180/tcp"
+      - "9080:9080/tcp"
+      - "9091:9091/tcp"
+      - "9443:9443/tcp"
+      - "9092:9092/tcp"
+  apisix-dashboard:
+    image: apache/apisix-dashboard:3.0.1-alpine
+    restart: always
+    volumes:
+    - ./apisix-dashboard-config.yml:/usr/local/apisix-dashboard/conf/conf.yaml
+    ports:
+    - "9000:9000"
+    networks:
+       - fleet-global-network
+
+  mosquitto:
+    labels:
+      - fleet.service=mosquitto
+    image: eclipse-mosquitto:2
+    ports:
+      - ${MOSQUITTO_PORT}:1883
+      - ${MOSQUITTO_WS_PORT}:8081
+      - 9001:9001
+    volumes:
+#      - ./config/:/mosquitto/config/
+     # - ./log/:/mosquitto/log/
+       - ./log/:/mosquitto/data/
+    networks:
+       - fleet-global-network
+  devices-interface:
+    labels:
+      - fleet.service=devices-interface
+    # depends_on:
+    #   - kafka
+    image: connectedmotiondocker/devices-interface:${DEVICES_INTERFACE_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - PUBLISH_TOPIC_NAME=${PUBLISH_TOPIC_NAME_DEVICES_INTERFACE}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - SOCKETS_HOST=${SOCKETS_HOST}
+      - SOCKETS_PORT=${SOCKETS_PORT}
+    ports:
+      - ${EXTERNAL_PORT_DEVICES_INTERFACE}:${SOCKETS_PORT}
+      - 5001:5001
+    external_links:
+      - mongo
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+        delay: 1s
+      resources:
+        limits:
+          cpus: '1'
+          memory: 1024M
+    networks:
+       - fleet-global-network
+    #   - web
+
+  admin-system:
+    labels:
+      - fleet.service=admin-system
+    image: connectedmotiondocker/admin-system:${ADMIN_SYSTEM_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - ADMIN_PORT=${ADMIN_PORT}
+    ports:
+      - ${ADMIN_PORT}:${ADMIN_PORT}
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1024M
+    networks:
+       - fleet-global-network
+    #   - web
+
+  realtime-monitor:
+    labels:
+      - fleet.service=realtime-monitor
+    depends_on:
+ #     - process-controller
+      - mosquitto
+    image: connectedmotiondocker/realtime-monitor:${REALTIME_MONITOR_TAG}
+    environment:
+      - SLOT={{.Task.Slot}}
+      - TRIGGER_TOPIC_NAME=${TRIGGER_TOPIC_NAME_REALTIME_MONITOR}
+      - CONSUMER_GROUP_NAME=${CONSUMER_GROUP_NAME_REALTIME_MONITOR}
+      - KAFKA_HOST=${KAFKA_HOST}
+      - KAFKA_PORT=${KAFKA_PORT}
+      - MQTT_HOST=${MOSQUITTO_HOST}
+      - MQTT_PORT=${MOSQUITTO_PORT}
+      - REDIS_HOST=${REDIS_HOST}
+      - REDIS_PORT=${REDIS_PORT}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - MONITOR_PORT=${MONITOR_PORT}
+    ports:
+      - ${MONITOR_PORT}:${MONITOR_PORT}
+    deploy:
+      replicas: 1
+      resources:
+        limits:
+          cpus: '1'
+          memory: 3072M
+    networks:
+       - fleet-global-network
+    #   - web
+
+
+#networks:
+#   web:
+#   #   driver: overlay
+#   fleet-global-network:
+  #   driver: overlay
+
+networks:
+  fleet-global-network:
+    
+#    driver: overlay

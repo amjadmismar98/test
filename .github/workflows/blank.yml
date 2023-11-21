@@ -2,7 +2,7 @@ name: Test and Copy Docker Compose
 
 on:
   #push:
-    # branches:
+    # branches: #the branch will be the env. that we looking for
     #   - main  
   workflow_dispatch:  # Manual trigger
      inputs:
@@ -12,23 +12,41 @@ on:
          options:
             - infrastructure
             - internal
-            - test
+            - dmz
              
 jobs:
-  test-and-copy:
+  infrastructure:
     runs-on: [self-hosted]
-    if: ${{ github.event.inputs.environment == 'test' }}
+    if: ${{ github.event.inputs.environment == 'infrastructure' }}
     steps:
       - run: echo " deploy on ${{ github.event.inputs.environment}} "
-      # - name: Checkout code
-      #   uses: actions/checkout@v2
-      
-      # - name: Run script
-      #   run: |
-      #     # Replace the command with your script execution command
-      #     ./your-test-script.sh
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      # - name: Copy Docker Compose file
-      #   run: |
-      #     # Replace 'docker-compose.yml' with your file name and destination path
-      #     cp docker-compose.yml ~/
+
+      - name: Copy Docker Compose file
+        run: |          
+          cp docker-compose.info.yml ~/
+
+  internal:
+    runs-on: [self-hosted]
+    if: ${{ github.event.inputs.environment == 'internal' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - run: echo "Deploying on internal runner"
+      - name: Copy Docker Compose file
+        run: |          
+          cp docker-compose.internal.yml ~/
+
+  dmz:
+    runs-on: [self-hosted]
+    if: ${{ github.event.inputs.environment == 'dmz' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - run: echo "Deploying on dmz runner"
+      - name: Copy Docker Compose file
+        run: |          
+          cp docker-compose.dmz.yml ~/
