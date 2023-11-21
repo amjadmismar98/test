@@ -26,7 +26,7 @@ jobs:
 
       - name: Copy Docker Compose file
         run: |          
-          cp docker-compose.info.yml ~/
+          cp docker-compose.info.yml ~/apps  &&  mv -f  ~/apps/docker-compose.info.yml ~/apps/docker-compose.yml
 
   internal:
     runs-on: [self-hosted]
@@ -38,7 +38,7 @@ jobs:
       - run: echo "Deploying on internal runner"
       - name: Copy Docker Compose file
         run: |          
-          cp docker-compose.internal.yml ~/
+          cp docker-compose.internal.yml ~/apps  &&  mv -f  ~/apps/docker-compose.internal.yml ~/apps/docker-compose.yml
 
   dmz:
     runs-on: [self-hosted]
@@ -49,4 +49,4 @@ jobs:
       - run: echo "Deploying on dmz runner"
       - name: Copy Docker Compose file
         run: |          
-          cp docker-compose.dmz.yml ~/apps  && mv -f  docker-compose.dmz.yml docker-compose.yml
+          cp docker-compose.dmz.yml ~/apps  &&  mv -f  ~/apps/docker-compose.dmz.yml ~/apps/docker-compose.yml
